@@ -1,3 +1,17 @@
 #!/usr/bin/env python
 
-print "Hello, world"
+import sys
+
+subcommand = sys.argv[1]
+
+if subcommand == "orphans":
+    print "orphans"
+elif subcommand == "git-orphans":
+    print "git-orphans"
+elif subcommit == "git-orphans-cache":
+    print "git-orphans-cache"
+elif subcommand == "git-orphans-diff":
+    print "git-orphans-diff"
+else:
+    print "unknown subcommand"
+    exit(1)
