@@ -1,17 +1,78 @@
 #!/usr/bin/env python
 
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
+import time
+
+def orphans_of_commit(commit):
+  return set([s.strip() for s in subprocess.Popen(["git-orphans-cache", commit], stdout=subprocess.PIPE).stdout])
+
+def parents_of_commit(commit):
+  return list(subprocess.Popen(["git", "rev-list", "--parents", "--max-count=1", commit], stdout=subprocess.PIPE).stdout)[0].strip().split(" ")[1:]
 
 subcommand = sys.argv[1]
 
 if subcommand == "orphans":
-    print "orphans"
+    start_time_unix = int(subprocess.check_output(['date', '+%s']).strip())
+
+    time.sleep(1)  # atime has a one-second resolution
+
+    subprocess.call(sys.argv[2:])
+
+    for line in subprocess.Popen(["find", "."], stdout = subprocess.PIPE).stdout:
+        filepath = line.strip()
+        atime_unix = int(subprocess.check_output(["stat", "-f", "%a", filepath]).strip())
+        if atime_unix <= start_time_unix:
+            print filepath[2:]
+
 elif subcommand == "git-orphans":
-    print "git-orphans"
+    commit = sys.argv[2]
+
+    devnull = open(os.devnull, 'wb')
+
+    temp_directory_path = tempfile.mkdtemp(suffix='git-orphans');
+    subprocess.check_call(["git", "clone", "--recurse-submodules", ".", temp_directory_path], stdout=devnull, stderr=devnull)
+    # subprocess.check_call(["git", "fetch", "origin", commit], cwd=temp_directory_path, stdout=devnull, stderr=devnull)
+    subprocess.check_call(["git", "checkout", commit], cwd=temp_directory_path, stdout=devnull, stderr=devnull)
+
+    orphans = set(subprocess.Popen(["orphans", "./build.sh"], stdout=subprocess.PIPE, cwd=temp_directory_path).stdout)
+    git_files = set(subprocess.Popen(["git", "ls-files", "--with-tree=" + commit], stdout=subprocess.PIPE, cwd=temp_directory_path).stdout)
+
+    shutil.rmtree(temp_directory_path)
+
+    for f in (orphans & git_files):
+      print f.strip()
+
 elif subcommit == "git-orphans-cache":
-    print "git-orphans-cache"
+    commit = sys.argv[2]
+
+    devnull = open(os.devnull, 'wb')
+
+    note = subprocess.Popen(["git", "notes", "--ref=orphans", "show", commit], stdout=subprocess.PIPE, stderr=devnull)
+    out, err = note.communicate()
+
+    if note.returncode != 0:
+        note_add = subprocess.Popen(["git", "notes", "--ref=orphans", "add", "-F", "-", commit], stdin=subprocess.PIPE)
+        orphans = subprocess.check_output(["git-orphans", commit])
+        note_add.communicate("orphans:\n" + orphans)
+        print orphans
+    else:
+        print out[9:]
+
 elif subcommand == "git-orphans-diff":
-    print "git-orphans-diff"
+    commit = sys.argv[2]
+
+    orphans = orphans_of_commit(commit)
+
+    for parent in parents_of_commit(commit):
+      orphans -= orphans_of_commit(parent)
+
+    for orphan in orphans:
+      print orphan
+
 else:
     print "unknown subcommand"
     exit(1)
