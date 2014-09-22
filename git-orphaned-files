@@ -13,36 +13,50 @@ def orphans_of_commit(commit):
 def parents_of_commit(commit):
   return list(subprocess.Popen(["git", "rev-list", "--parents", "--max-count=1", commit], stdout=subprocess.PIPE).stdout)[0].strip().split(" ")[1:]
 
-def orphans(command_str):
+def git_files_of_commit(commit):
+    out = set()
+    for f in set(subprocess.Popen(["git", "ls-files", "--with-tree=" + commit], stdout=subprocess.PIPE).stdout):
+        out.add(f.strip())
+    return out
+
+def orphans(command_str, cwd="."):
     start_time_unix = int(subprocess.check_output(['date', '+%s']).strip())
 
     time.sleep(1)  # atime has a one-second resolution
 
-    subprocess.call(command_str)
+    subprocess.call(command_str, cwd=cwd)
 
-    for line in subprocess.Popen(["find", "."], stdout = subprocess.PIPE).stdout:
+    out = set()
+
+    for line in subprocess.Popen(["find", "."], stdout = subprocess.PIPE, cwd=cwd).stdout:
         filepath = line.strip()
-        atime_unix = int(subprocess.check_output(["stat", "-f", "%a", filepath]).strip())
+        atime_unix = int(subprocess.check_output(["stat", "-f", "%a", filepath], cwd=cwd).strip())
         if atime_unix <= start_time_unix:
-            print filepath[2:]
+            out.add(filepath[2:])
 
-def git_orphans(commit):
+    return out
+
+def git_orphans(command_str, commit):
     devnull = open(os.devnull, 'wb')
 
-    temp_directory_path = tempfile.mkdtemp(suffix='git-orphans');
+    temp_directory_path = tempfile.mkdtemp(suffix='git-orphans:'+command_str);
     subprocess.check_call(["git", "clone", "--recurse-submodules", ".", temp_directory_path], stdout=devnull, stderr=devnull)
     # subprocess.check_call(["git", "fetch", "origin", commit], cwd=temp_directory_path, stdout=devnull, stderr=devnull)
     subprocess.check_call(["git", "checkout", commit], cwd=temp_directory_path, stdout=devnull, stderr=devnull)
 
-    orphans = set(subprocess.Popen(["orphans", "./build.sh"], stdout=subprocess.PIPE, cwd=temp_directory_path).stdout)
-    git_files = set(subprocess.Popen(["git", "ls-files", "--with-tree=" + commit], stdout=subprocess.PIPE, cwd=temp_directory_path).stdout)
+    orphs = orphans(command_str, cwd=temp_directory_path)
+    git_files = git_files_of_commit(commit)
 
     shutil.rmtree(temp_directory_path)
 
-    for f in (orphans & git_files):
-      print f.strip()
+    out = set()
 
-def git_orphans_cache(commit):
+    for f in (orphs & git_files):
+      out.add(f.strip())
+
+    return out
+
+def git_orphans_cache(command_str, commit):
     devnull = open(os.devnull, 'wb')
 
     note = subprocess.Popen(["git", "notes", "--ref=orphans", "show", commit], stdout=subprocess.PIPE, stderr=devnull)
@@ -56,7 +70,7 @@ def git_orphans_cache(commit):
     else:
         print out[9:]
 
-def git_orphans_diff(commit):
+def git_orphans_diff(command_str, commit):
     orphans = orphans_of_commit(commit)
 
     for parent in parents_of_commit(commit):
@@ -69,13 +83,15 @@ def git_orphans_diff(commit):
 subcommand = sys.argv[1]
 
 if subcommand == "orphans":
-    orphans(sys.argv[2])
+    for f in orphans(sys.argv[2]):
+        print f
 elif subcommand == "git-orphans":
-    git_orphans(sys.argv[2])
+    for f in git_orphans(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"):
+        print f
 elif subcommit == "git-orphans-cache":
-    git_orphans_cache(sys.argv[2])
+    git_orphans_cache(sys.argv[2] if 2 < len(sys.argv) else "HEAD")
 elif subcommand == "git-orphans-diff":
-    git_orphans_diff(sys.argv[2])
+    git_orphans_diff(sys.argv[2] if 2 < len(sys.argv) else "HEAD")
 else:
     print "unknown subcommand"
     exit(1)
