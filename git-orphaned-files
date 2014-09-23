@@ -39,7 +39,7 @@ def orphans(command_str, cwd="."):
 def git_orphans(command_str, commit):
     devnull = open(os.devnull, 'wb')
 
-    temp_directory_path = tempfile.mkdtemp(suffix='git-orphans:'+command_str);
+    temp_directory_path = tempfile.mkdtemp(suffix='git-orphans');
     subprocess.check_call(["git", "clone", "--recurse-submodules", ".", temp_directory_path], stdout=devnull, stderr=devnull)
     # subprocess.check_call(["git", "fetch", "origin", commit], cwd=temp_directory_path, stdout=devnull, stderr=devnull)
     subprocess.check_call(["git", "checkout", commit], cwd=temp_directory_path, stdout=devnull, stderr=devnull)
@@ -59,16 +59,16 @@ def git_orphans(command_str, commit):
 def git_orphans_cache(command_str, commit):
     devnull = open(os.devnull, 'wb')
 
-    note = subprocess.Popen(["git", "notes", "--ref=orphans", "show", commit], stdout=subprocess.PIPE, stderr=devnull)
+    note = subprocess.Popen(["git", "notes", "--ref=orphans:"+command_str, "show", commit], stdout=subprocess.PIPE, stderr=devnull)
     out, err = note.communicate()
 
     if note.returncode != 0:
-        note_add = subprocess.Popen(["git", "notes", "--ref=orphans", "add", "-F", "-", commit], stdin=subprocess.PIPE)
-        orphans = subprocess.check_output(["git-orphans", commit])
+        orphans = git_orphans(command_str, commit)
+        note_add = subprocess.Popen(["git", "notes", "--ref=orphans"+command_str, "add", "-F", "-", commit], stdin=subprocess.PIPE)
         note_add.communicate("orphans:\n" + orphans)
-        print orphans
+        return orphans
     else:
-        print out[9:]
+        return out.split("\n")
 
 def git_orphans_diff(command_str, commit):
     orphans = orphans_of_commit(commit)
@@ -88,8 +88,9 @@ if subcommand == "orphans":
 elif subcommand == "git-orphans":
     for f in git_orphans(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"):
         print f
-elif subcommit == "git-orphans-cache":
-    git_orphans_cache(sys.argv[2] if 2 < len(sys.argv) else "HEAD")
+elif subcommand == "git-orphans-cache":
+    for f in git_orphans_cache(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"):
+        print f
 elif subcommand == "git-orphans-diff":
     git_orphans_diff(sys.argv[2] if 2 < len(sys.argv) else "HEAD")
 else:
