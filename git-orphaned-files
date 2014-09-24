@@ -88,9 +88,9 @@ def main():
     if subcommand == "orphans":
         print_set(orphans(sys.argv[2]))
     elif subcommand == "git-orphans":
-        print_set(git_orphans(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"))
+        print_set(git_orphans(sys.argv[2], sys.argv[3] if 3 < len(sys.argv) else "HEAD"))
     elif subcommand == "git-orphans-cache":
-        print_set(git_orphans_cache(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"))
+        print_set(git_orphans_cache(sys.argv[2], sys.argv[3] if 3 < len(sys.argv) else "HEAD"))
     elif subcommand == "git-orphans-diff":
         git_orphans_diff(sys.argv[2] if 2 < len(sys.argv) else "HEAD")
     else:
