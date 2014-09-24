@@ -19,6 +19,10 @@ def git_files_of_commit(commit):
         out.add(f.strip())
     return out
 
+def print_set(s):
+    for el in s:
+      print el
+
 def orphans(command_str, cwd="."):
     start_time_unix = int(subprocess.check_output(['date', '+%s']).strip())
 
@@ -76,21 +80,16 @@ def git_orphans_diff(command_str, commit):
     for parent in parents_of_commit(commit):
       orphans -= orphans_of_commit(parent)
 
-    for orphan in orphans:
-      print orphan
-
+    print_set(orphans)
 
 subcommand = sys.argv[1]
 
 if subcommand == "orphans":
-    for f in orphans(sys.argv[2]):
-        print f
+    print_set(orphans(sys.argv[2]))
 elif subcommand == "git-orphans":
-    for f in git_orphans(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"):
-        print f
+    print_set(git_orphans(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"))
 elif subcommand == "git-orphans-cache":
-    for f in git_orphans_cache(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"):
-        print f
+    print_set(git_orphans_cache(sys.argv[2], sys.argv[3] if 2 < len(sys.argv) else "HEAD"))
 elif subcommand == "git-orphans-diff":
     git_orphans_diff(sys.argv[2] if 2 < len(sys.argv) else "HEAD")
 else:
