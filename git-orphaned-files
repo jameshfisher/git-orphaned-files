@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -83,21 +84,27 @@ def git_orphans_diff(command_str, commit):
     print_set(orphans)
 
 def main():
-    subcommand = sys.argv[1]
+    # git orphaned-files <commit>                   ==> git_orphans_cache
+    # git orphaned-files --no-cache <commit>        ==> git_orphans
+    # git-orphaned-files --diff <commit>            ==> git_orphans_diff
+    # git-orphaned-files --diff --no-cache <commit> ==> ?
+    parser = argparse.ArgumentParser(description='Find orphans. Kill orphans.')
 
-    if subcommand == "orphans":
-        print_set(orphans(sys.argv[2]))
-    elif subcommand == "git-orphans":
-        print_set(git_orphans(sys.argv[2], sys.argv[3] if 3 < len(sys.argv) else "HEAD"))
-    elif subcommand == "git-orphans-cache":
-        print_set(git_orphans_cache(sys.argv[2], sys.argv[3] if 3 < len(sys.argv) else "HEAD"))
-    elif subcommand == "git-orphans-diff":
-        git_orphans_diff(sys.argv[2] if 2 < len(sys.argv) else "HEAD")
+    parser.add_argument("--diff",     dest="diff",     action='store_true', help="Only show orphaned files which are not orphaned in any parents of this commit")
+    parser.add_argument("--no-cache", dest="cache", action='store_false', help="Do not use previously cached results for this command")
+    parser.add_argument("commit-ish", default="HEAD", help="The commit to show orphaned files for")
+
+    args = vars(parser.parse_args())
+
+    if not args["cache"] and not args["diff"]:
+        print_set(git_orphans("./build.sh", args["commit-ish"]))
+    elif args["cache"] and not args["diff"]:
+        print_set(git_orphans_cache("./build.sh", args["commit-ish"]))
+    elif args["diff"]:
+        git_orphans_diff("./build.sh", args["commit-ish"])
     else:
         print "unknown subcommand"
         exit(1)
-
-print sys.argv
 
 if __name__ == '__main__':
     main()
